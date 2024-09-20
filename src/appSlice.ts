@@ -1,71 +1,108 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { AspectVals, CropInit } from "./CropDialog.tsx";
 import { v1 } from "uuid";
+import { AspectVals, CropInit } from "./App.tsx";
 
 export type ImgProps = {
   id: string;
   imageUrl: string | undefined;
-  croppedImageUrl: string | null;
-  crop?: CropInit;
-  zoom?: number | null; // Изменяем тип на number | null | undefined
-  aspect?: AspectVals | null; // Добавляем возможность null для aspect
+  croppedAreaPx: CroppedAreaPx;
+  crop: CropInit;
+  zoom: number;
+  aspect: AspectVals;
+  originalImageUrl: string;
 };
-export type CroppedImgForProps = Partial<ImgProps> & Pick<ImgProps, "id">;
-export type UpdateImgById = Omit<ImgProps, "imageUrl">;
+
+export type CroppedAreaPx = {
+  x: number;
+  y: number;
+  height: number;
+  width: number;
+} | null;
+
+type UpdateImgCrop = {
+  id: string;
+  crop: CropInit;
+};
+
+type UpdateImgZoom = {
+  id: string;
+  zoom: number;
+};
+
+type UpdateImgAspect = {
+  id: string;
+  aspect: AspectVals;
+};
 
 const slice = createSlice({
   name: "app",
   initialState: {
-    createPostImages: [] as ImgProps[],
-    selectedImg: null as ImgProps | null,
+    allPostImages: [] as ImgProps[],
   },
   reducers: {
-    addImgSrcs(state, action: PayloadAction<{ imageUrl: string }>) {
-      const imgDataToSave: ImgProps = {
-        id: v1(),
-        imageUrl: action.payload.imageUrl,
-        croppedImageUrl: null,
-        zoom: null, // Изначально null
-        aspect: null, // Изначально null
-      };
-      state.createPostImages.push(imgDataToSave);
+    addPostImgs(state, action: PayloadAction<{ imageUrl: string }>) {
+      const existingPhoto = state.allPostImages.find(
+        (img) => img.imageUrl === action.payload.imageUrl,
+      );
+      if (!existingPhoto) {
+        const imgDataToSave: ImgProps = {
+          id: v1(),
+          imageUrl: action.payload.imageUrl,
+          croppedAreaPx: null,
+          zoom: 1,
+          crop: { x: 0, y: 0 },
+          aspect: { text: "1:1", value: 1 },
+          originalImageUrl: "",
+        };
+        state.allPostImages.unshift(imgDataToSave);
+      }
     },
-    resetImgById(state, action: PayloadAction<{ id: string }>) {
-      const imgIndex = state.createPostImages.findIndex(
+    updateCrop(state, action: PayloadAction<UpdateImgCrop>) {
+      const imgIndex = state.allPostImages.findIndex(
         (img) => img.id === action.payload.id,
       );
       if (imgIndex !== -1) {
-        const img = state.createPostImages[imgIndex];
-        const updatedImg: ImgProps = {
-          ...img,
-          croppedImageUrl: null,
-          crop: undefined,
-          zoom: null,
-          aspect: null,
+        state.allPostImages[imgIndex] = {
+          ...state.allPostImages[imgIndex],
+          crop: action.payload.crop,
         };
-        state.createPostImages[imgIndex] = updatedImg;
       }
     },
-    updateImageById(state, action: PayloadAction<UpdateImgById>) {
-      const imgIndex = state.createPostImages.findIndex(
+    updateZoom(state, action: PayloadAction<UpdateImgZoom>) {
+      const imgIndex = state.allPostImages.findIndex(
         (img) => img.id === action.payload.id,
       );
       if (imgIndex !== -1) {
-        const img = state.createPostImages[imgIndex];
-        const updatedImg: ImgProps = {
-          ...img,
-          ...action.payload,
+        state.allPostImages[imgIndex] = {
+          ...state.allPostImages[imgIndex],
+          zoom: action.payload.zoom,
         };
-        state.createPostImages[imgIndex] = updatedImg;
       }
     },
-    addOrRemoveSelectedImg(state, action: PayloadAction<ImgProps | null>) {
-      state.selectedImg = action.payload;
+    updateAspect(state, action: PayloadAction<UpdateImgAspect>) {
+      const imgIndex = state.allPostImages.findIndex(
+        (img) => img.id === action.payload.id,
+      );
+      if (imgIndex !== -1) {
+        state.allPostImages[imgIndex] = {
+          ...state.allPostImages[imgIndex],
+          aspect: action.payload.aspect,
+        };
+      }
+    },
+    updateCroppedAreaPixels(
+      state,
+      action: PayloadAction<{ id: string; croppedAreaPx: CroppedAreaPx }>,
+    ) {
+      const img = state.allPostImages.find((el) => el.id === action.payload.id);
+      if (img) img.croppedAreaPx = action.payload.croppedAreaPx;
+    },
+    setAllPostImgs(state, action: PayloadAction<{ images: ImgProps[] }>) {
+      state.allPostImages = action.payload.images.map((el) => ({ ...el }));
     },
   },
   selectors: {
-    imgSrcs: (sliceState) => sliceState.createPostImages,
-    selectedImg: (sliceState) => sliceState.selectedImg,
+    imgSrcs: (sliceState) => sliceState.allPostImages,
   },
 });
 
